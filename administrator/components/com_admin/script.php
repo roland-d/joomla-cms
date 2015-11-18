@@ -1590,7 +1590,7 @@ class JoomlaInstallerScript
 
 		if ($format == 'mysql' && version_compare(JVERSION, '3.5.0', 'lt'))
 		{
-			$fileName = JPATH_ADMINISTRATOR . "/components/com_admin/sql/ut8mb4/$format/3.5.0-2015-07-01.sql";
+			$fileName = JPATH_ADMINISTRATOR . "/components/com_admin/sql/utf8mb4/$format/3.5.0-2015-07-01.sql";
 
 			// Split the queries
 			$fileContents = @file_get_contents($fileName);
