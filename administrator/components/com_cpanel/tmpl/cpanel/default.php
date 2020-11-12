@@ -48,6 +48,7 @@ echo HTMLHelper::_(
 	)
 );
 ?>
+<h1>Hello World</h1>
 <div id="cpanel-modules">
 	<div class="cpanel-modules <?php echo $this->position; ?>">
 		<div class="card-columns">
