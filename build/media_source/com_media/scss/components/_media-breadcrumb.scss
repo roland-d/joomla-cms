@@ -23,13 +23,20 @@
   padding-inline-end: 8px;
   padding-inline-start: 22px;
   background-color: $breadcrumbs-bg;
+  a {
+    color: $breadcrumbs-color;
+  }
   &:first-of-type {
     padding-inline-start: 16px;
   }
   &:last-of-type {
     background-color: $breadcrumbs-current-bg;
+    a {
+      color: var(--body-color);
+    }
+    &::before,
     &::after {
-      border-inline-start-color: $breadcrumbs-current-bg;
+      border: none;
     }
   }
   &:hover {

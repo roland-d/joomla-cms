@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     Joomla.Plugin
  * @subpackage  Editors.tinymce
@@ -6,14 +7,16 @@
  * @copyright   (C) 2021 Open Source Matters, Inc. <https://www.joomla.org>
  * @license     GNU General Public License version 2 or later; see LICENSE.txt
  */
-namespace Joomla\Plugin\Editors\TinyMCE\PluginTraits;
 
-\defined('_JEXEC') or die();
+namespace Joomla\Plugin\Editors\TinyMCE\PluginTraits;
 
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Layout\LayoutHelper;
 use Joomla\CMS\Uri\Uri;
-use Joomla\Event\Event;
+
+// phpcs:disable PSR1.Files.SideEffects
+\defined('_JEXEC') or die;
+// phpcs:enable PSR1.Files.SideEffects
 
 /**
  * Resolves the XTD Buttons for the current TinyMCE editor.
@@ -22,62 +25,94 @@ use Joomla\Event\Event;
  */
 trait XTDButtons
 {
-	/**
-	 * Get the XTD buttons and render them inside tinyMCE
-	 *
-	 * @param   string  $name      the id of the editor field
-	 * @param   string  $excluded  the buttons that should be hidden
-	 *
-	 * @return array|void
-	 *
-	 * @since 4.1.0
-	 */
-	private function tinyButtons($name, $excluded)
-	{
-		// Get the available buttons
-		$buttonsEvent = new Event(
-			'getButtons',
-			[
-				'editor'  => $name,
-				'buttons' => $excluded,
-			]
-		);
+    /**
+     * Get the XTD buttons and render them inside tinyMCE
+     *
+     * @param   mixed  $buttons  the buttons that should be hidden
+     * @param   array  $options  Associative array with additional parameters
+     *
+     * @return array
+     *
+     * @since 4.1.0
+     */
+    private function tinyButtons($buttons, array $options = []): array
+    {
+        // Get buttons from plugins
+        $buttonsList = $this->getButtons($buttons, $options);
 
-		$buttonsResult = $this->getDispatcher()->dispatch('getButtons', $buttonsEvent);
-		$buttons       = $buttonsResult['result'];
+        if (!$buttonsList) {
+            return [];
+        }
 
-		if (is_array($buttons) || (is_bool($buttons) && $buttons))
-		{
-			Text::script('PLG_TINY_CORE_BUTTONS');
+        /** @var \Joomla\CMS\WebAsset\WebAssetManager $wa */
+        $wa       = $this->application->getDocument()->getWebAssetManager();
+        $editorId = $options['editorId'] ?? '';
 
-			// Init the arrays for the buttons
-			$btnsNames = [];
+        Text::script('PLG_TINY_CORE_BUTTONS');
 
-			// Build the script
-			foreach ($buttons as $i => $button)
-			{
-				$button->id = $name . '_' . $button->name . '_modal';
+        // Build a buttons option for TinyMCE
+        $tinyButtons = [];
 
-				echo LayoutHelper::render('joomla.editors.buttons.modal', $button);
+        foreach ($buttonsList as $button) {
+            $title   = $button->get('title') ?: $button->get('text', '');
+            $icon    = $button->get('icon');
+            $link    = $button->get('link');
+            $action  = $button->get('action', '');
+            $options = (array) $button->get('options');
 
-				if ($button->get('name'))
-				{
-					$coreButton            = [];
-					$coreButton['name']    = $button->get('text');
-					$coreButton['href']    = $button->get('link') !== '#' ? Uri::base() . $button->get('link') : null;
-					$coreButton['id']      = $name . '_' . $button->name;
-					$coreButton['icon']    = $button->get('icon');
-					$coreButton['click']   = $button->get('onclick') ?: null;
-					$coreButton['iconSVG'] = $button->get('iconSVG');
+            $btnAsset = 'editor-button.' . $button->getButtonName();
 
-					// The array with the toolbar buttons
-					$btnsNames[] = $coreButton;
-				}
-			}
+            // Enable the button assets if any
+            if ($wa->assetExists('style', $btnAsset)) {
+                $wa->useStyle($btnAsset);
+            }
+            if ($wa->assetExists('script', $btnAsset)) {
+                $wa->useScript($btnAsset);
+            }
 
-			sort($btnsNames);
+            // Correct the link
+            if ($link && $link[0] !== '#') {
+                $link           = str_contains($link, '&amp;') ? htmlspecialchars_decode($link) : $link;
+                $link           = Uri::base(true) . '/' . $link;
+                $options['src'] = $options['src'] ?? $link;
+            }
 
-			return ['names'  => $btnsNames];
-		}
-	}
+            // Set action to "modal" for legacy buttons, when possible
+            $legacyModal = $button->get('modal');
+
+            // Prepare default values for modal
+            if ($action === 'modal') {
+                $wa->useScript('joomla.dialog');
+                $legacyModal = false;
+
+                $options['popupType']  = $options['popupType'] ?? 'iframe';
+                $options['textHeader'] = $options['textHeader'] ?? $title;
+                $options['iconHeader'] = $options['iconHeader'] ?? 'icon-' . $icon;
+            }
+
+            $coreButton            = [];
+            $coreButton['name']    = $title;
+            $coreButton['icon']    = $icon;
+            $coreButton['click']   = $button->get('onclick');
+            $coreButton['iconSVG'] = $button->get('iconSVG');
+            $coreButton['action']  = $action;
+            $coreButton['options'] = $options;
+
+            if ($legacyModal) {
+                $coreButton['bsModal'] = true;
+                $coreButton['id']      = $editorId . '_' . $button->name;
+
+                $button->id = $editorId . '_' . $button->name . '_modal';
+
+                echo LayoutHelper::render('joomla.editors.buttons.modal', $button);
+            }
+
+            // The array with the toolbar buttons
+            $tinyButtons[] = $coreButton;
+        }
+
+        sort($tinyButtons);
+
+        return ['names' => $tinyButtons];
+    }
 }

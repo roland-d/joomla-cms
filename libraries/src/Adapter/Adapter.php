@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Joomla! Content Management System
  *
@@ -8,10 +9,14 @@
 
 namespace Joomla\CMS\Adapter;
 
-\defined('JPATH_PLATFORM') or die;
-
 use Joomla\CMS\Factory;
-use Joomla\CMS\Object\CMSObject;
+use Joomla\CMS\Object\LegacyErrorHandlingTrait;
+use Joomla\CMS\Object\LegacyPropertyManagementTrait;
+use Joomla\Database\DatabaseAwareInterface;
+
+// phpcs:disable PSR1.Files.SideEffects
+\defined('_JEXEC') or die;
+// phpcs:enable PSR1.Files.SideEffects
 
 /**
  * Adapter Class
@@ -19,204 +24,203 @@ use Joomla\CMS\Object\CMSObject;
  * Class harvested from joomla.installer.installer
  *
  * @since       1.6
- * @deprecated  5.0 Will be removed without replacement
+ * @deprecated  4.3 will be removed in 6.0
+ *              Will be removed without replacement
  */
-class Adapter extends CMSObject
+class Adapter
 {
-	/**
-	 * Associative array of adapters
-	 *
-	 * @var    static[]
-	 * @since  1.6
-	 */
-	protected $_adapters = array();
+    use LegacyErrorHandlingTrait;
+    use LegacyPropertyManagementTrait;
 
-	/**
-	 * Adapter Folder
-	 *
-	 * @var    string
-	 * @since  1.6
-	 */
-	protected $_adapterfolder = 'adapters';
+    /**
+     * Associative array of adapters
+     *
+     * @var    static[]
+     * @since  1.6
+     */
+    protected $_adapters = [];
 
-	/**
-	 * Adapter Class Prefix
-	 *
-	 * @var    string
-	 * @since  1.6
-	 */
-	protected $_classprefix = 'J';
+    /**
+     * Adapter Folder
+     *
+     * @var    string
+     * @since  1.6
+     */
+    protected $_adapterfolder = 'adapters';
 
-	/**
-	 * Base Path for the adapter instance
-	 *
-	 * @var    string
-	 * @since  1.6
-	 */
-	protected $_basepath = null;
+    /**
+     * Adapter Class Prefix
+     *
+     * @var    string
+     * @since  1.6
+     */
+    protected $_classprefix = 'J';
 
-	/**
-	 * Database Connector Object
-	 *
-	 * @var    \Joomla\Database\DatabaseDriver
-	 * @since  1.6
-	 */
-	protected $_db;
+    /**
+     * Base Path for the adapter instance
+     *
+     * @var    string
+     * @since  1.6
+     */
+    protected $_basepath = null;
 
-	/**
-	 * Constructor
-	 *
-	 * @param   string  $basepath       Base Path of the adapters
-	 * @param   string  $classprefix    Class prefix of adapters
-	 * @param   string  $adapterfolder  Name of folder to append to base path
-	 *
-	 * @since   1.6
-	 */
-	public function __construct($basepath, $classprefix = null, $adapterfolder = null)
-	{
-		$this->_basepath = $basepath;
-		$this->_classprefix = $classprefix ?: 'J';
-		$this->_adapterfolder = $adapterfolder ?: 'adapters';
+    /**
+     * Database Connector Object
+     *
+     * @var    \Joomla\Database\DatabaseDriver
+     * @since  1.6
+     */
+    protected $_db;
 
-		$this->_db = Factory::getDbo();
-	}
+    /**
+     * Constructor
+     *
+     * @param   string  $basepath       Base Path of the adapters
+     * @param   string  $classprefix    Class prefix of adapters
+     * @param   string  $adapterfolder  Name of folder to append to base path
+     *
+     * @since   1.6
+     */
+    public function __construct($basepath, $classprefix = null, $adapterfolder = null)
+    {
+        $this->_basepath      = $basepath;
+        $this->_classprefix   = $classprefix ?: 'J';
+        $this->_adapterfolder = $adapterfolder ?: 'adapters';
 
-	/**
-	 * Get the database connector object
-	 *
-	 * @return  \Joomla\Database\DatabaseDriver  Database connector object
-	 *
-	 * @since   1.6
-	 */
-	public function getDbo()
-	{
-		return $this->_db;
-	}
+        $this->_db = Factory::getDbo();
 
-	/**
-	 * Return an adapter.
-	 *
-	 * @param   string  $name     Name of adapter to return
-	 * @param   array   $options  Adapter options
-	 *
-	 * @return  static|boolean  Adapter of type 'name' or false
-	 *
-	 * @since   1.6
-	 */
-	public function getAdapter($name, $options = array())
-	{
-		if (array_key_exists($name, $this->_adapters))
-		{
-			return $this->_adapters[$name];
-		}
+        // Ensure BC, when removed in 5, then the db must be set with setDatabase explicitly
+        if ($this instanceof DatabaseAwareInterface) {
+            $this->setDatabase($this->_db);
+        }
+    }
 
-		if ($this->setAdapter($name, $options))
-		{
-			return $this->_adapters[$name];
-		}
+    /**
+     * Get the database connector object
+     *
+     * @return  \Joomla\Database\DatabaseDriver  Database connector object
+     *
+     * @since   1.6
+     */
+    public function getDbo()
+    {
+        return $this->_db;
+    }
 
-		return false;
-	}
+    /**
+     * Return an adapter.
+     *
+     * @param   string  $name     Name of adapter to return
+     * @param   array   $options  Adapter options
+     *
+     * @return  static|boolean  Adapter of type 'name' or false
+     *
+     * @since   1.6
+     */
+    public function getAdapter($name, $options = [])
+    {
+        if (\array_key_exists($name, $this->_adapters)) {
+            return $this->_adapters[$name];
+        }
 
-	/**
-	 * Set an adapter by name
-	 *
-	 * @param   string  $name     Adapter name
-	 * @param   object  $adapter  Adapter object
-	 * @param   array   $options  Adapter options
-	 *
-	 * @return  boolean  True if successful
-	 *
-	 * @since   1.6
-	 */
-	public function setAdapter($name, &$adapter = null, $options = array())
-	{
-		if (is_object($adapter))
-		{
-			$this->_adapters[$name] = &$adapter;
+        if ($this->setAdapter($name, $options)) {
+            return $this->_adapters[$name];
+        }
 
-			return true;
-		}
+        return false;
+    }
 
-		$class = rtrim($this->_classprefix, '\\') . '\\' . ucfirst($name);
+    /**
+     * Set an adapter by name
+     *
+     * @param   string  $name     Adapter name
+     * @param   object  $adapter  Adapter object
+     * @param   array   $options  Adapter options
+     *
+     * @return  boolean  True if successful
+     *
+     * @since   1.6
+     */
+    public function setAdapter($name, &$adapter = null, $options = [])
+    {
+        if (\is_object($adapter)) {
+            $this->_adapters[$name] = &$adapter;
 
-		if (class_exists($class))
-		{
-			$this->_adapters[$name] = new $class($this, $this->_db, $options);
+            return true;
+        }
 
-			return true;
-		}
+        $class = rtrim($this->_classprefix, '\\') . '\\' . ucfirst($name);
 
-		$class = rtrim($this->_classprefix, '\\') . '\\' . ucfirst($name) . 'Adapter';
+        if (class_exists($class)) {
+            $this->_adapters[$name] = new $class($this, $this->_db, $options);
 
-		if (class_exists($class))
-		{
-			$this->_adapters[$name] = new $class($this, $this->_db, $options);
+            return true;
+        }
 
-			return true;
-		}
+        $class = rtrim($this->_classprefix, '\\') . '\\' . ucfirst($name) . 'Adapter';
 
-		$fullpath = $this->_basepath . '/' . $this->_adapterfolder . '/' . strtolower($name) . '.php';
+        if (class_exists($class)) {
+            $this->_adapters[$name] = new $class($this, $this->_db, $options);
 
-		if (!is_file($fullpath))
-		{
-			return false;
-		}
+            return true;
+        }
 
-		// Try to load the adapter object
-		$class = $this->_classprefix . ucfirst($name);
+        $fullpath = $this->_basepath . '/' . $this->_adapterfolder . '/' . strtolower($name) . '.php';
 
-		\JLoader::register($class, $fullpath);
+        if (!is_file($fullpath)) {
+            return false;
+        }
 
-		if (!class_exists($class))
-		{
-			return false;
-		}
+        // Try to load the adapter object
+        $class = $this->_classprefix . ucfirst($name);
 
-		$this->_adapters[$name] = new $class($this, $this->_db, $options);
+        \JLoader::register($class, $fullpath);
 
-		return true;
-	}
+        if (!class_exists($class)) {
+            return false;
+        }
 
-	/**
-	 * Loads all adapters.
-	 *
-	 * @param   array  $options  Adapter options
-	 *
-	 * @return  void
-	 *
-	 * @since   1.6
-	 */
-	public function loadAllAdapters($options = array())
-	{
-		$files = new \DirectoryIterator($this->_basepath . '/' . $this->_adapterfolder);
+        $this->_adapters[$name] = new $class($this, $this->_db, $options);
 
-		/** @type  $file  \DirectoryIterator */
-		foreach ($files as $file)
-		{
-			$fileName = $file->getFilename();
+        return true;
+    }
 
-			// Only load for php files.
-			if (!$file->isFile() || $file->getExtension() != 'php')
-			{
-				continue;
-			}
+    /**
+     * Loads all adapters.
+     *
+     * @param   array  $options  Adapter options
+     *
+     * @return  void
+     *
+     * @since   1.6
+     */
+    public function loadAllAdapters($options = [])
+    {
+        $files = new \DirectoryIterator($this->_basepath . '/' . $this->_adapterfolder);
 
-			// Try to load the adapter object
-			require_once $this->_basepath . '/' . $this->_adapterfolder . '/' . $fileName;
+        /** @type  $file  \DirectoryIterator */
+        foreach ($files as $file) {
+            $fileName = $file->getFilename();
 
-			// Derive the class name from the filename.
-			$name = str_ireplace('.php', '', ucfirst(trim($fileName)));
-			$class = $this->_classprefix . ucfirst($name);
+            // Only load for php files.
+            if (!$file->isFile() || $file->getExtension() != 'php') {
+                continue;
+            }
 
-			if (!class_exists($class))
-			{
-				// Skip to next one
-				continue;
-			}
+            // Try to load the adapter object
+            require_once $this->_basepath . '/' . $this->_adapterfolder . '/' . $fileName;
 
-			$adapter = new $class($this, $this->_db, $options);
-			$this->_adapters[$name] = clone $adapter;
-		}
-	}
+            // Derive the class name from the filename.
+            $name  = str_ireplace('.php', '', ucfirst(trim($fileName)));
+            $class = $this->_classprefix . ucfirst($name);
+
+            if (!class_exists($class)) {
+                // Skip to next one
+                continue;
+            }
+
+            $adapter                = new $class($this, $this->_db, $options);
+            $this->_adapters[$name] = clone $adapter;
+        }
+    }
 }

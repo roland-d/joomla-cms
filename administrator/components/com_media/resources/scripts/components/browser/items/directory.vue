@@ -5,7 +5,9 @@
   >
     <div
       class="media-browser-item-preview"
+      tabindex="0"
       @dblclick.stop.prevent="onPreviewDblClick()"
+      @keyup.enter="onPreviewDblClick()"
     >
       <div class="file-background">
         <div class="folder-icon">
@@ -16,21 +18,30 @@
     <div class="media-browser-item-info">
       {{ item.name }}
     </div>
-    <media-browser-action-items-container
+    <MediaBrowserActionItemsContainer
       ref="container"
-      :focused="focused"
       :item="item"
+      @toggle-settings="toggleSettings"
     />
   </div>
 </template>
 <script>
 import navigable from '../../../mixins/navigable.es6';
+import MediaBrowserActionItemsContainer from '../actionItems/actionItemsContainer.vue';
 
 export default {
   name: 'MediaBrowserItemDirectory',
+  components: {
+    MediaBrowserActionItemsContainer,
+  },
   mixins: [navigable],
-  // eslint-disable-next-line vue/require-prop-types
-  props: ['item', 'focused'],
+  props: {
+    item: {
+      type: Object,
+      default: () => {},
+    },
+  },
+  emits: ['toggle-settings'],
   data() {
     return {
       showActions: false,
@@ -40,10 +51,27 @@ export default {
     /* Handle the on preview double click event */
     onPreviewDblClick() {
       this.navigateTo(this.item.path);
+
+      window.parent.document.dispatchEvent(
+        new CustomEvent('onMediaFileSelected', {
+          bubbles: true,
+          cancelable: false,
+          detail: {
+            type: this.item.type,
+            name: this.item.name,
+            path: this.item.path,
+          },
+        }),
+      );
     },
     /* Hide actions dropdown */
     hideActions() {
-      this.$refs.container.hideActions();
+      if (this.$refs.container) {
+        this.$refs.container.hideActions();
+      }
+    },
+    toggleSettings(bool) {
+      this.$emit('toggle-settings', bool);
     },
   },
 };

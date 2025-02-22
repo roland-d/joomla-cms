@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     Joomla.Administrator
  * @subpackage  com_messages
@@ -9,20 +10,22 @@
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\Factory;
 use Joomla\CMS\Layout\LayoutHelper;
 
+/** @var \Joomla\Component\Messages\Administrator\View\Messages\HtmlView $this */
+
 $displayData = [
-	'textPrefix' => 'COM_MESSAGES',
-	'formURL'    => 'index.php?option=com_messages&view=messages',
-	'helpURL'    => 'https://docs.joomla.org/Special:MyLanguage/Help40:Private_Messages',
-	'icon'       => 'icon-envelope inbox',
+    'textPrefix' => 'COM_MESSAGES',
+    'formURL'    => 'index.php?option=com_messages&view=messages',
+    'helpURL'    => 'https://docs.joomla.org/Special:MyLanguage/Help5.x:Private_Messages',
+    'icon'       => 'icon-envelope inbox',
 ];
 
-if (Factory::getApplication()->getIdentity()->authorise('core.create', 'com_messages')
-	&& Factory::getApplication()->getIdentity()->authorise('core.manage', 'com_users'))
-{
-	$displayData['createURL'] = 'index.php?option=com_messages&task=message.add';
+if (
+    $this->getCurrentUser()->authorise('core.create', 'com_messages')
+    && $this->getCurrentUser()->authorise('core.manage', 'com_users')
+) {
+    $displayData['createURL'] = 'index.php?option=com_messages&task=message.add';
 }
 
 echo LayoutHelper::render('joomla.content.emptystate', $displayData);

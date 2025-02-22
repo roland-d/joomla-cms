@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @package     Joomla.Administrator
  * @subpackage  com_finder
@@ -9,15 +10,18 @@
 
 namespace Joomla\Component\Finder\Administrator\View\Filter;
 
-\defined('_JEXEC') or die;
-
 use Joomla\CMS\Factory;
 use Joomla\CMS\Helper\ContentHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\View\GenericDataException;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
-use Joomla\CMS\Object\CMSObject;
+use Joomla\CMS\Toolbar\Toolbar;
 use Joomla\CMS\Toolbar\ToolbarHelper;
+use Joomla\Component\Finder\Administrator\Model\FilterModel;
+
+// phpcs:disable PSR1.Files.SideEffects
+\defined('_JEXEC') or die;
+// phpcs:enable PSR1.Files.SideEffects
 
 /**
  * Filter view class for Finder.
@@ -26,155 +30,161 @@ use Joomla\CMS\Toolbar\ToolbarHelper;
  */
 class HtmlView extends BaseHtmlView
 {
-	/**
-	 * The filter object
-	 *
-	 * @var    \Joomla\Component\Finder\Administrator\Table\FilterTable
-	 *
-	 * @since  3.6.2
-	 */
-	protected $filter;
+    /**
+     * The filter object
+     *
+     * @var    \Joomla\Component\Finder\Administrator\Table\FilterTable
+     *
+     * @since  3.6.2
+     */
+    protected $filter;
 
-	/**
-	 * The Form object
-	 *
-	 * @var    \Joomla\CMS\Form\Form
-	 *
-	 * @since  3.6.2
-	 */
-	protected $form;
+    /**
+     * The Form object
+     *
+     * @var    \Joomla\CMS\Form\Form
+     *
+     * @since  3.6.2
+     */
+    protected $form;
 
-	/**
-	 * The active item
-	 *
-	 * @var    CMSObject|boolean
-	 *
-	 * @since  3.6.2
-	 */
-	protected $item;
+    /**
+     * The active item
+     *
+     * @var    \stdClass
+     *
+     * @since  3.6.2
+     */
+    protected $item;
 
-	/**
-	 * The model state
-	 *
-	 * @var    CMSObject
-	 *
-	 * @since  3.6.2
-	 */
-	protected $state;
+    /**
+     * The model state
+     *
+     * @var    \Joomla\Registry\Registry
+     *
+     * @since  3.6.2
+     */
+    protected $state;
 
-	/**
-	 * The total indexed items
-	 *
-	 * @var    integer
-	 *
-	 * @since  3.8.0
-	 */
-	protected $total;
+    /**
+     * The total indexed items
+     *
+     * @var    integer
+     *
+     * @since  3.8.0
+     */
+    protected $total;
 
-	/**
-	 * Method to display the view.
-	 *
-	 * @param   string  $tpl  A template file to load. [optional]
-	 *
-	 * @return  void
-	 *
-	 * @since   2.5
-	 */
-	public function display($tpl = null)
-	{
-		// Load the view data.
-		$this->filter = $this->get('Filter');
-		$this->item = $this->get('Item');
-		$this->form = $this->get('Form');
-		$this->state = $this->get('State');
-		$this->total = $this->get('Total');
+    /**
+     * Array of fieldsets not to display
+     *
+     * @var    string[]
+     *
+     * @since  5.2.0
+     */
+    public $ignore_fieldsets = [];
 
-		// Check for errors.
-		if (count($errors = $this->get('Errors')))
-		{
-			throw new GenericDataException(implode("\n", $errors), 500);
-		}
+    /**
+     * Method to display the view.
+     *
+     * @param   string  $tpl  A template file to load. [optional]
+     *
+     * @return  void
+     *
+     * @since   2.5
+     */
+    public function display($tpl = null)
+    {
+        /** @var FilterModel $model */
+        $model = $this->getModel();
 
-		// Configure the toolbar.
-		$this->addToolbar();
+        // Load the view data.
+        $this->filter = $model->getFilter();
+        $this->item   = $model->getItem();
+        $this->form   = $model->getForm();
+        $this->state  = $model->getState();
+        $this->total  = $model->getTotal();
 
-		parent::display($tpl);
-	}
+        // Check for errors.
+        if (\count($errors = $model->getErrors())) {
+            throw new GenericDataException(implode("\n", $errors), 500);
+        }
 
-	/**
-	 * Method to configure the toolbar for this view.
-	 *
-	 * @return  void
-	 *
-	 * @since   2.5
-	 */
-	protected function addToolbar()
-	{
-		Factory::getApplication()->input->set('hidemainmenu', true);
+        // Configure the toolbar.
+        $this->addToolbar();
 
-		$isNew = ($this->item->filter_id == 0);
-		$checkedOut = !(is_null($this->item->checked_out) || $this->item->checked_out == Factory::getUser()->id);
-		$canDo = ContentHelper::getActions('com_finder');
+        parent::display($tpl);
+    }
 
-		// Configure the toolbar.
-		ToolbarHelper::title(
-			$isNew ? Text::_('COM_FINDER_FILTER_NEW_TOOLBAR_TITLE') : Text::_('COM_FINDER_FILTER_EDIT_TOOLBAR_TITLE'),
-			'zoom-in finder'
-		);
+    /**
+     * Method to configure the toolbar for this view.
+     *
+     * @return  void
+     *
+     * @since   2.5
+     */
+    protected function addToolbar()
+    {
+        Factory::getApplication()->getInput()->set('hidemainmenu', true);
 
-		// Set the actions for new and existing records.
-		if ($isNew)
-		{
-			// For new records, check the create permission.
-			if ($canDo->get('core.create'))
-			{
-				ToolbarHelper::apply('filter.apply');
+        $isNew      = ($this->item->filter_id == 0);
+        $checkedOut = !(\is_null($this->item->checked_out) || $this->item->checked_out == $this->getCurrentUser()->id);
+        $canDo      = ContentHelper::getActions('com_finder');
+        $toolbar    = $this->getDocument()->getToolbar();
 
-				ToolbarHelper::saveGroup(
-					[
-						['save', 'filter.save'],
-						['save2new', 'filter.save2new']
-					],
-					'btn-success'
-				);
-			}
+        // Configure the toolbar.
+        ToolbarHelper::title(
+            $isNew ? Text::_('COM_FINDER_FILTER_NEW_TOOLBAR_TITLE') : Text::_('COM_FINDER_FILTER_EDIT_TOOLBAR_TITLE'),
+            'zoom-in finder'
+        );
 
-			ToolbarHelper::cancel('filter.cancel');
-		}
-		else
-		{
-			$toolbarButtons = [];
+        // Set the actions for new and existing records.
+        if ($isNew) {
+            // For new records, check the create permission.
+            if ($canDo->get('core.create')) {
+                $toolbar->apply('filter.apply');
+                $saveGroup = $toolbar->dropdownButton('save-group');
+                $saveGroup->configure(
+                    function (Toolbar $childBar) {
+                        $childBar->save('filter.save');
+                        $childBar->save2new('filter.save2new');
+                    }
+                );
+            }
 
-			// Can't save the record if it's checked out.
-			// Since it's an existing record, check the edit permission.
-			if (!$checkedOut && $canDo->get('core.edit'))
-			{
-				ToolbarHelper::apply('filter.apply');
+            $toolbar->cancel('filter.cancel', 'JTOOLBAR_CANCEL');
+        } else {
+            // Can't save the record if it's checked out.
+            // Since it's an existing record, check the edit permission.
+            if (!$checkedOut && $canDo->get('core.edit')) {
+                $toolbar->apply('filter.apply');
+            }
 
-				$toolbarButtons[] = ['save', 'filter.save'];
+            $saveGroup = $toolbar->dropdownButton('save-group');
+            $saveGroup->configure(
+                function (Toolbar $childBar) use ($checkedOut, $canDo) {
+                    // Can't save the record if it's checked out.
+                    // Since it's an existing record, check the edit permission.
+                    if (!$checkedOut && $canDo->get('core.edit')) {
+                        $childBar->save('filter.save');
 
-				// We can save this record, but check the create permission to see if we can return to make a new one.
-				if ($canDo->get('core.create'))
-				{
-					$toolbarButtons[] = ['save2new', 'filter.save2new'];
-				}
-			}
+                        // We can save this record, but check the create permission to see if we can return to make a new one.
+                        if ($canDo->get('core.create')) {
+                            $childBar->save2new('filter.save2new');
+                        }
+                    }
 
-			// If an existing item, can save as a copy
-			if ($canDo->get('core.create'))
-			{
-				$toolbarButtons[] = ['save2copy', 'filter.save2copy'];
-			}
+                    // If an existing item, can save as a copy
+                    if ($canDo->get('core.create')) {
+                        $childBar->save2copy('filter.save2copy');
+                    }
+                }
+            );
 
-			ToolbarHelper::saveGroup(
-				$toolbarButtons,
-				'btn-success'
-			);
+            $toolbar->cancel('filter.cancel');
+        }
 
-			ToolbarHelper::cancel('filter.cancel', 'JTOOLBAR_CLOSE');
-		}
-
-		ToolbarHelper::divider();
-		ToolbarHelper::help('Smart_Search:_New_or_Edit_Filter');
-	}
+        $toolbar->divider();
+        $toolbar->help('Smart_Search:_New_or_Edit_Filter');
+    }
 }
