@@ -122,6 +122,7 @@ final class Requests extends CMSPlugin implements SubscriberInterface
         $auth     = (string) $params->auth ?? 0;
         $authType = (string) $params->authType ?? '';
         $authKey  = (string) $params->authKey ?? '';
+		$saveResponse = ($params->saveResponse ?? 0) === 1;
         $headers  = [];
 
         if ($auth && $authType && $authKey) {
@@ -139,31 +140,54 @@ final class Requests extends CMSPlugin implements SubscriberInterface
         $responseCode = $response->code;
         $responseBody = $response->body;
 
-        // @todo this handling must be rethought and made safe. stands as a good demo right now.
-        $responseFilename = Path::clean($this->rootDirectory . "/task_{$id}_response.html");
+        $responseSaved = false;
 
-        try {
-            File::write($responseFilename, $responseBody);
-            $this->snapshot['output_file'] = $responseFilename;
-            $responseStatus                = 'SAVED';
-        } catch (\Exception $e) {
-            $this->logTask($this->getApplication()->getLanguage()->_('PLG_TASK_REQUESTS_TASK_GET_REQUEST_LOG_UNWRITEABLE_OUTPUT'), 'error');
-            $responseStatus = 'NOT_SAVED';
-        }
+		if ($saveResponse)
+		{
+			$this->saveResponse($id, $responseBody);
+			$responseSaved = true;
+		}
 
-        $this->snapshot['output']      = <<< EOF
-======= Task Output Body =======
-> URL: $url
-> Response Code: $responseCode
-> Response: $responseStatus
-EOF;
+		$responseStatus = (function () use ($responseSaved, $saveResponse) {
+			$status = $saveResponse && $responseSaved ? 'SAVED' : 'NOT_SAVED';
+
+			return $this->getApplication()->getLanguage()->_("PLG_TASK_REQUESTS_TASK_GET_REQUEST_${status}");
+		})();
+
+		$this->snapshot['output'] = \sprintf($this->getApplication()->getLanguage()->_('PLG_TASK_REQUESTS_TASK_GET_REQUEST_LOG_RESPONSE'), $responseCode);
 
         $this->logTask(\sprintf($this->getApplication()->getLanguage()->_('PLG_TASK_REQUESTS_TASK_GET_REQUEST_LOG_RESPONSE'), $responseCode));
 
-        if ($response->code !== 200) {
+        if ($responseCode !== 200) {
             return TaskStatus::KNOCKOUT;
         }
 
         return TaskStatus::OK;
     }
+	/**
+	 * Save request response to task snapshot.
+	 *
+	 * @param   integer  $taskId        ID of the task spawning the request routine.
+	 * @param   string   $responseBody  Response body.
+	 *
+	 * @return  boolean  Returns false on failure to save the response.
+	 *
+	 * @since __DEPLOY_VERSION__
+	 * @throws \Exception
+	 */
+	private function saveResponse(int $taskId, string $responseBody): bool
+	{
+        // @todo this handling must be rethought and made safe. stands as a good demo right now.
+        $responseFilename = Path::clean($this->rootDirectory . "/task_{$taskId}_response.html");
+
+        try {
+            File::write($responseFilename, $responseBody);
+            $this->snapshot['output_file'] = $responseFilename;
+            return true;
+        } catch (\Exception $e) {
+            $this->logTask($this->getApplication()->getLanguage()->_('PLG_TASK_REQUESTS_TASK_GET_REQUEST_LOG_UNWRITEABLE_OUTPUT'), 'error');
+        }
+
+		return false;
+	}
 }
